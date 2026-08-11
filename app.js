@@ -1,0 +1,71 @@
+
+function exportData(){
+ const blob=new Blob([JSON.stringify({version:"4.1",exportedAt:new Date().toISOString(),data:db},null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download="ElectroMax-Sn-sauvegarde-"+new Date().toISOString().slice(0,10)+".json";a.click();
+ URL.revokeObjectURL(a.href);
+}
+function importData(file){
+ if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const pack=JSON.parse(reader.result), data=pack.data||pack;
+   if(!Array.isArray(data.invoices)||!Array.isArray(data.clients)||!Array.isArray(data.products))throw new Error();
+   if(!confirm("Cette sauvegarde remplacera les données actuelles. Continuer ?"))return;
+   db={invoices:data.invoices,clients:data.clients,products:data.products};persist();refresh();
+   alert("Sauvegarde restaurée avec succès.");
+  }catch(e){alert("Fichier de sauvegarde invalide.");}
+ };
+ reader.readAsText(file);
+}
+
+const $=id=>document.getElementById(id),KEY="electromax_sn_v4";
+const base={invoices:[],clients:[],products:[
+{id:"1",name:"VENTILATEUR BINATONE À EAU",ref:"BAC-201",cost:50000,price:70000},
+{id:"2",name:'TV LG 55" SMART TV 4K UHD',ref:"LG55-4K",cost:180000,price:225000},
+{id:"3",name:"LG SPLIT 24000 BTU 3CV DUAL INVERTER",ref:"LG24-INV",cost:450000,price:490000}]};
+let db=(()=>{try{return Object.assign({},base,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){return base}})(),items=[{designation:"",reference:"",quantity:1,price:0,cost:0}];
+const money=n=>new Intl.NumberFormat("fr-FR").format(Math.round(n||0))+" FCFA", plain=n=>new Intl.NumberFormat("fr-FR").format(Math.round(n||0)), esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function persist(){localStorage.setItem(KEY,JSON.stringify(db))}
+function nextNo(){let y=new Date().getFullYear(),m=db.invoices.reduce((a,x)=>Math.max(a,parseInt(String(x.number).split("-").pop())||0),0);return`EMX-${y}-${String(m+1).padStart(4,"0")}`}
+function dateText(d){return d?new Date(d+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}):"—"}
+function words(n){n=Math.floor(n||0);if(!n)return"Zéro franc CFA";let u=["","un","deux","trois","quatre","cinq","six","sept","huit","neuf","dix","onze","douze","treize","quatorze","quinze","seize"],t=["","","vingt","trente","quarante","cinquante","soixante"],u100=x=>x<17?u[x]:x<20?"dix-"+u[x-10]:x<70?t[Math.floor(x/10)]+(x%10===1?" et un":x%10?"-"+u[x%10]:""):x<80?"soixante-"+u100(x-60):"quatre-vingt"+(x===80?"s":"-"+u[x-80]),u1000=x=>x<100?u100(x):((()=>{let h=Math.floor(x/100),r=x%100,s=h===1?"cent":u[h]+" cent";if(!r&&h>1)s+="s";return r?s+" "+u100(r):s})()),a=[],m=Math.floor(n/1e6),k=Math.floor(n%1e6/1e3),r=n%1e3;if(m)a.push(u1000(m)+(m===1?" million":" millions"));if(k)a.push(u1000(k)+" mille");if(r)a.push(u1000(r));return a.join(" ")+" francs CFA"}
+const metas={dashboard:["Tableau de bord","Vue d'ensemble de votre activité"],invoice:["Nouvelle facture","Créer et télécharger une facture"],invoices:["Historique des factures","Rechercher vos ventes"],clients:["Clients","Gérer votre fichier clients"],products:["Catalogue produits","Prix d'achat, vente et marge"],profits:["Bénéfices","Suivre la rentabilité"]};
+function go(p){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===p+"-page"));document.querySelectorAll(".side-nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===p));$("title").textContent=metas[p][0];$("subtitle").textContent=metas[p][1];({dashboard:renderDash,invoices:renderInvoices,clients:renderClients,products:renderProducts,profits:renderProfits})[p]?.();scrollTo(0,0)}
+function init(){document.querySelectorAll(".side-nav button").forEach(b=>b.onclick=()=>go(b.dataset.page));document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));$("quick").onclick=()=>go("invoice");bindInvoice();refresh();go("dashboard")}
+function bindInvoice(){
+  $("invoiceNumber").value=nextNo();$("invoiceDate").value=new Date().toISOString().slice(0,10);
+  ["invoiceNumber","invoiceDate","clientName","clientPhone","clientAddress","warranty","payment","conditions","footerMessage"].forEach(id=>$(id).oninput=updateInvoice);
+  $("addItem").onclick=()=>{items.push({designation:"",reference:"",quantity:1,price:0,cost:0});renderItems();updateInvoice()};
+  $("saveInvoice").onclick=saveInvoice;$("pdfBtn").onclick=pdf;
+  $("invoiceSearch").oninput=renderInvoices;$("clientSearch").oninput=renderClients;$("productSearch").oninput=renderProducts;
+  $("addClient").onclick=clientModal;$("addProduct").onclick=productModal;$("closeModal").onclick=()=>$("modal").classList.remove("show");
+}
+function renderItems(){
+ $("itemsEditor").innerHTML=items.map((x,i)=>`<div class="item-editor"><div class="item-fields"><input list="plist" placeholder="Désignation" value="${esc(x.designation)}" data-i="${i}" data-k="designation"><input placeholder="Référence" value="${esc(x.reference)}" data-i="${i}" data-k="reference"><input type="number" min="1" value="${x.quantity}" data-i="${i}" data-k="quantity"><input type="number" min="0" value="${x.price}" data-i="${i}" data-k="price"></div><div class="item-actions"><span class="cost">${money(x.cost)}</span><button class="remove-btn" data-r="${i}">Supprimer</button></div></div>`).join("")+`<datalist id="plist">${db.products.map(p=>`<option value="${esc(p.name)}">`).join("")}</datalist>`;
+ $("itemsEditor").querySelectorAll("[data-k]").forEach(e=>e.oninput=()=>{let i=+e.dataset.i,k=e.dataset.k;items[i][k]=["quantity","price"].includes(k)?+e.value:e.value;if(k==="designation"){let p=db.products.find(p=>p.name.toLowerCase()===e.value.toLowerCase());if(p){items[i].reference=p.ref;items[i].price=p.price;items[i].cost=p.cost;renderItems()}}updateInvoice()});
+ $("itemsEditor").querySelectorAll("[data-r]").forEach(e=>e.onclick=()=>{items.splice(+e.dataset.r,1);if(!items.length)items=[{designation:"",reference:"",quantity:1,price:0,cost:0}];renderItems();updateInvoice()})
+}
+function updateInvoice(){
+ $("viewInvoiceNumber").textContent=$("invoiceNumber").value||"—";$("viewDate").textContent=dateText($("invoiceDate").value);$("viewClientName").textContent=$("clientName").value||"Client";$("viewClientPhone").textContent=$("clientPhone").value||"—";$("viewClientAddress").textContent=$("clientAddress").value||"—";$("viewWarranty").textContent=($("warranty").value||"12 mois").toUpperCase();$("viewConditions").innerHTML=($("conditions").value||"").split("\n").filter(Boolean).map(x=>`<div>✓ ${esc(x)}</div>`).join("");$("viewFooterMessage").innerHTML=esc($("footerMessage").value||"Merci pour votre confiance !")+"<br><small>ElectroMax Sn, votre satisfaction, notre engagement.</small>";
+ let sub=0,del=0;$("invoiceItems").innerHTML=items.map(x=>{let a=(+x.quantity||0)*(+x.price||0);/livraison/i.test(x.designation)?del+=a:sub+=a;return`<tr><td>${esc(x.designation||"—")}</td><td>${esc(x.reference||"—")}</td><td>${x.quantity||0}</td><td>${plain(x.price)}</td><td>${plain(a)}</td></tr>`}).join("");for(let i=items.length;i<4;i++)$("invoiceItems").insertAdjacentHTML("beforeend","<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>");let total=sub+del;$("subtotal").textContent=money(sub);$("deliveryTotal").textContent=money(del);$("grandTotal").textContent=money(total);$("amountWords").textContent=words(total);if(window.QRCode){$("qrCode").innerHTML="";new QRCode($("qrCode"),{text:"https://wa.me/221789683959",width:80,height:80})}
+}
+function saveInvoice(){let x={number:$("invoiceNumber").value,date:$("invoiceDate").value,clientName:$("clientName").value.trim(),clientPhone:$("clientPhone").value.trim(),clientAddress:$("clientAddress").value.trim(),warranty:$("warranty").value,payment:$("payment").value,conditions:$("conditions").value,footer:$("footerMessage").value,items:items.filter(x=>x.designation||x.price),total:items.reduce((s,x)=>s+(+x.quantity||0)*(+x.price||0),0),cost:items.reduce((s,x)=>s+(+x.quantity||0)*(+x.cost||0),0)};x.profit=x.total-x.cost;if(!x.clientName||!x.items.length)return alert("Renseigne le client et au moins un produit.");let i=db.invoices.findIndex(a=>a.number===x.number);i>=0?db.invoices[i]=x:db.invoices.unshift(x);let c=db.clients.find(c=>c.phone&&c.phone===x.clientPhone);c?Object.assign(c,{name:x.clientName,address:x.clientAddress}):db.clients.push({name:x.clientName,phone:x.clientPhone,address:x.clientAddress});persist();refresh();$("saveStatus").textContent="Facture enregistrée ✓";alert("Facture enregistrée.");}
+function refresh(){renderDash();renderInvoices();renderClients();renderProducts();renderProfits()}
+function renderDash(){let ca=db.invoices.reduce((s,x)=>s+x.total,0),b=db.invoices.reduce((s,x)=>s+x.profit,0);$("ca").textContent=money(ca);$("benef").textContent=money(b);$("nbInv").textContent=db.invoices.length;$("nbClients").textContent=db.clients.length;$("recent").innerHTML=db.invoices.slice(0,6).map(x=>`<div class="row"><div><b>${esc(x.number)}</b><small>${esc(x.clientName)} • ${dateText(x.date)}</small></div><strong>${money(x.total)}</strong></div>`).join("")||`<div class="empty">Aucune facture</div>`;$("catalogue").innerHTML=db.products.slice(0,6).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc(x.ref)}</small></div><strong>${money(x.price)}</strong></div>`).join("")}
+function renderInvoices(){let q=($("invoiceSearch").value||"").toLowerCase();$("invoicesTable").innerHTML=db.invoices.filter(x=>(x.number+" "+x.clientName+" "+x.clientPhone).toLowerCase().includes(q)).map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${dateText(x.date)}</td><td>${esc(x.clientName)}</td><td>${money(x.total)}</td><td>${money(x.profit)}</td><td><button class="btn-sm" onclick="loadInv('${x.number}')">Modifier</button></td></tr>`).join("")||`<tr><td colspan="6"><div class="empty">Aucune facture</div></td></tr>`}
+function renderClients(){let q=($("clientSearch").value||"").toLowerCase();$("clientsTable").innerHTML=db.clients.filter(x=>(x.name+" "+x.phone+" "+x.address).toLowerCase().includes(q)).map(c=>{let a=db.invoices.filter(i=>i.clientPhone===c.phone||i.clientName.toLowerCase()===c.name.toLowerCase());return`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.phone||"—")}</td><td>${esc(c.address||"—")}</td><td>${a.length}</td><td>${money(a.reduce((s,x)=>s+x.total,0))}</td></tr>`}).join("")||`<tr><td colspan="5"><div class="empty">Aucun client</div></td></tr>`}
+function renderProducts(){let q=($("productSearch").value||"").toLowerCase();$("productsTable").innerHTML=db.products.filter(x=>(x.name+" "+x.ref).toLowerCase().includes(q)).map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.ref)}</td><td>${money(p.cost)}</td><td>${money(p.price)}</td><td>${money(p.price-p.cost)}</td><td><button class="btn-sm" onclick="productModal('${p.id}')">Modifier</button></td></tr>`).join("")}
+function renderProfits(){let s=db.invoices.reduce((a,x)=>a+x.total,0),c=db.invoices.reduce((a,x)=>a+x.cost,0),b=s-c;$("pTotal").textContent=money(b);$("pSales").textContent=money(s);$("pCost").textContent=money(c);$("pRate").textContent=(s?b/s*100:0).toFixed(1)+" %";$("profitsTable").innerHTML=db.invoices.map(x=>`<tr><td>${esc(x.number)}</td><td>${esc(x.clientName)}</td><td>${money(x.total)}</td><td>${money(x.cost)}</td><td><b>${money(x.profit)}</b></td></tr>`).join("")}
+function openModal(t,b){$("modalTitle").textContent=t;$("modalBody").innerHTML=b;$("modal").classList.add("show")}
+function clientModal(){openModal("Ajouter un client",`<form id="cf" class="modal-form"><label>Nom<input id="cn" required></label><label>Téléphone<input id="ct"></label><label>Adresse<input id="ca2"></label><button class="btn btn-primary">Enregistrer</button></form>`);$("cf").onsubmit=e=>{e.preventDefault();db.clients.push({name:$("cn").value,phone:$("ct").value,address:$("ca2").value});persist();refresh();$("modal").classList.remove("show")}}
+function productModal(id){let p=db.products.find(x=>x.id===id)||{id:Date.now().toString(),name:"",ref:"",cost:0,price:0};openModal(id?"Modifier le produit":"Ajouter un produit",`<form id="pf" class="modal-form"><label>Produit<input id="pn" value="${esc(p.name)}" required></label><label>Référence<input id="pr" value="${esc(p.ref)}"></label><label>Prix achat<input id="pc" type="number" value="${p.cost}"></label><label>Prix vente<input id="pp" type="number" value="${p.price}"></label><button class="btn btn-primary">Enregistrer</button></form>`);$("pf").onsubmit=e=>{e.preventDefault();p.name=$("pn").value;p.ref=$("pr").value;p.cost=+$("pc").value||0;p.price=+$("pp").value||0;if(!db.products.some(x=>x.id===p.id))db.products.push(p);persist();refresh();renderItems();$("modal").classList.remove("show")}}
+function loadInv(no){let x=db.invoices.find(x=>x.number===no);if(!x)return;go("invoice");Object.assign($("invoiceNumber"),{value:x.number});$("invoiceDate").value=x.date;$("clientName").value=x.clientName;$("clientPhone").value=x.clientPhone;$("clientAddress").value=x.clientAddress;$("warranty").value=x.warranty;$("payment").value=x.payment;$("conditions").value=x.conditions;$("footerMessage").value=x.footer;items=x.items.map(x=>({...x}));renderItems();updateInvoice()}
+async function pdf(){if(typeof html2pdf!=="function")return alert("Le module PDF n'est pas chargé.");let b=$("pdfBtn");b.disabled=true;b.textContent="Génération…";try{await new Promise(r=>setTimeout(r,150));await html2pdf().set({margin:0,filename:`${$("invoiceNumber").value||"facture-electromax"}.pdf`,image:{type:"jpeg",quality:.95},html2canvas:{scale:1.5,useCORS:false,allowTaint:true,backgroundColor:"#fff",logging:false,windowWidth:794,width:794,height:1123,scrollX:0,scrollY:0},jsPDF:{unit:"mm",format:"a4",orientation:"portrait",compress:true},pagebreak:{mode:["css"]}}).from($("invoice")).save();$("saveStatus").textContent="PDF téléchargé ✓"}catch(e){console.error(e);if(confirm("Erreur PDF. Ouvrir l'impression native ?"))print()}finally{b.disabled=false;b.textContent="Télécharger PDF"}}
+window.addEventListener("DOMContentLoaded",()=>{
+ init();renderItems();updateInvoice();
+ $("exportData").onclick=exportData;
+ $("importDataBtn").onclick=()=>$("importData").click();
+ $("importData").onchange=e=>importData(e.target.files[0]);
+})

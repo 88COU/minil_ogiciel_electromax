@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ElectroMax Sn — Mini logiciel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<aside class="sidebar no-print">
+  <div class="logo-side"><img src="assets/logo-electromax.jpg" alt="ElectroMax Sn"><span>MINI LOGICIEL</span></div>
+  <nav class="side-nav">
+    <button class="active" data-page="dashboard">📊 Tableau de bord</button>
+    <button data-page="invoice">🧾 Nouvelle facture</button>
+    <button data-page="invoices">📋 Factures</button>
+    <button data-page="clients">👥 Clients</button>
+    <button data-page="products">📦 Produits</button>
+    <button data-page="profits">💰 Bénéfices</button>
+  </nav>
+</aside>
+<div class="main">
+<header class="header no-print"><div><h1 id="title">Tableau de bord</h1><p id="subtitle">Vue d'ensemble de votre activité</p></div><button class="btn btn-primary" id="quick">+ Nouvelle facture</button></header>
+
+<section class="page active" id="dashboard-page">
+<div class="stats"><div class="stat"><small>CHIFFRE D'AFFAIRES</small><strong id="ca">0 FCFA</strong><span>Factures enregistrées</span></div><div class="stat"><small>BÉNÉFICE</small><strong id="benef">0 FCFA</strong><span>Marge commerciale</span></div><div class="stat"><small>FACTURES</small><strong id="nbInv">0</strong><span>Documents</span></div><div class="stat"><small>CLIENTS</small><strong id="nbClients">0</strong><span>Clients</span></div></div>
+<div class="card no-print" style="margin-top:18px"><div class="card-head">
+<div><h2>Sauvegarde des données</h2><small>Factures, clients et produits.</small></div>
+<div class="form-actions" style="margin:0"><button class="btn btn-secondary" id="exportData">Exporter</button>
+<button class="btn btn-secondary" id="importDataBtn">Importer</button>
+<input id="importData" type="file" accept=".json" hidden></div></div></div>
+<div class="cards"><div class="card"><div class="card-head"><h2>Dernières factures</h2><button class="btn-sm" data-go="invoices">Voir tout</button></div><div class="rows" id="recent"></div></div><div class="card"><div class="card-head"><h2>Catalogue</h2><button class="btn-sm" data-go="products">Gérer</button></div><div class="rows" id="catalogue"></div></div></div>
+</section>
+
+<section class="page" id="invoice-page">
+<div class="invoice-layout">
+<section class="panel form-panel no-print">
+<div class="panel-title"><h2>Informations de la facture</h2><span id="saveStatus">Brouillon</span></div>
+<div class="form-grid"><label>Numéro<input id="invoiceNumber"></label><label>Date<input id="invoiceDate" type="date"></label></div>
+<h3>Client</h3><div class="form-grid"><label>Nom complet<input id="clientName" placeholder="Ex. Aïcha"></label><label>Téléphone<input id="clientPhone"></label><label class="full">Adresse<input id="clientAddress"></label></div>
+<div class="section-row"><h3>Produits / services</h3><button class="link-btn" id="addItem">+ Ajouter</button></div><div id="itemsEditor"></div>
+<div class="form-grid"><label>Garantie<input id="warranty" value="12 mois"></label><label>Paiement<select id="payment"><option>Espèces</option><option>Wave</option><option>Orange Money</option><option>Virement</option><option>Autre</option></select></label></div>
+<div class="form-grid"><label>Conditions<textarea id="conditions" rows="4">La garantie couvre les défauts de fabrication conformément aux conditions du fabricant.
+La facture tient lieu de preuve d’achat.
+Aucune garantie ne sera applicable en cas de mauvaise utilisation du produit ou d’intervention extérieure.</textarea></label><label>Message<textarea id="footerMessage" rows="4">Merci pour votre confiance !</textarea></label></div>
+<div class="form-actions"><button class="btn btn-primary" id="saveInvoice">Enregistrer</button><button class="btn btn-secondary" id="pdfBtn">Télécharger PDF</button></div>
+</section>
+<section class="preview-area"><div class="preview-toolbar no-print"><span>Aperçu A4</span><span>FCFA</span></div>
+<article id="invoice" class="invoice">
+<div class="invoice-header"><div class="brand"><img src="assets/logo-electromax.jpg" alt="ElectroMax Sn"><div class="tagline">LA QUALITÉ, NOTRE PRIORITÉ</div></div><div class="company-info"><div>📍 Dakar, Avenue Lamine Gueye</div><div>☎ 78 968 39 59</div><div>✉ electromaxsenegal@gmail.com</div></div></div><div class="orange-line"></div>
+<div class="meta-grid"><div class="invoice-meta"><div class="meta-label">FACTURE N°</div><div class="invoice-number" id="viewInvoiceNumber"></div><div class="date-row"><span>DATE :</span><strong id="viewDate"></strong></div></div><div class="client-box"><div class="client-title">👤 <span>FACTURÉ À :</span></div><strong id="viewClientName">Client</strong><div>☎ <span id="viewClientPhone">—</span></div><div>📍 <span id="viewClientAddress">—</span></div></div></div>
+<table class="items-table"><thead><tr><th>DÉSIGNATION</th><th>RÉFÉRENCE</th><th>QUANTITÉ</th><th>PRIX UNITAIRE<br>(FCFA)</th><th>MONTANT<br>(FCFA)</th></tr></thead><tbody id="invoiceItems"></tbody></table>
+<div class="bottom-grid"><div class="warranty-box"><div class="shield">✓</div><div><div class="warranty-title">GARANTIE</div><div class="warranty-value" id="viewWarranty">12 MOIS</div><div class="small">Garantie constructeur</div></div></div><div class="summary"><div><span>SOUS-TOTAL</span><strong id="subtotal">0 FCFA</strong></div><div><span>FRAIS DE LIVRAISON</span><strong id="deliveryTotal">0 FCFA</strong></div><div class="grand"><span>TOTAL À PAYER</span><strong id="grandTotal">0 FCFA</strong></div><div class="amount-words" id="amountWords">Zéro franc CFA</div></div></div>
+<div class="invoice-footer-grid"><div class="conditions"><div class="conditions-title">CONDITIONS</div><div id="viewConditions"></div></div><div class="stamp-area">
+  <div class="official-stamp"><img src="assets/cachet-electromax.png" alt="Cachet ElectroMax Sn"></div>
+  <div class="official-signature"><img src="assets/signature-electromax.png" alt="Signature électronique ElectroMax Sn"><div class="signature-caption">Cachet &amp; Signature</div></div>
+</div></div>
+<div class="footer-bar"><div><b>SERVICE CLIENT</b><br><span>78 968 39 59</span></div><div class="thankyou" id="viewFooterMessage">Merci pour votre confiance !<br><small>ElectroMax Sn, votre satisfaction, notre engagement.</small></div><div class="qr" id="qrCode"></div></div>
+</article></section></div>
+</section>
+
+<section class="page" id="invoices-page"><div class="card"><div class="card-head"><h2>Historique des factures</h2><button class="btn btn-primary" data-go="invoice">+ Nouvelle facture</button></div><div class="search"><input id="invoiceSearch" placeholder="Rechercher numéro, client ou téléphone"></div><div class="table-wrap"><table class="data"><thead><tr><th>Facture</th><th>Date</th><th>Client</th><th>Total</th><th>Bénéfice</th><th></th></tr></thead><tbody id="invoicesTable"></tbody></table></div></div></section>
+
+<section class="page" id="clients-page"><div class="card"><div class="card-head"><h2>Clients</h2><button class="btn btn-primary" id="addClient">+ Ajouter</button></div><div class="search"><input id="clientSearch" placeholder="Rechercher un client"></div><div class="table-wrap"><table class="data"><thead><tr><th>Nom</th><th>Téléphone</th><th>Adresse</th><th>Factures</th><th>Total achats</th></tr></thead><tbody id="clientsTable"></tbody></table></div></div></section>
+
+<section class="page" id="products-page"><div class="card"><div class="card-head"><h2>Catalogue produits</h2><button class="btn btn-primary" id="addProduct">+ Ajouter</button></div><div class="search"><input id="productSearch" placeholder="Rechercher produit ou référence"></div><div class="table-wrap"><table class="data"><thead><tr><th>Produit</th><th>Référence</th><th>Prix achat</th><th>Prix vente</th><th>Marge</th><th></th></tr></thead><tbody id="productsTable"></tbody></table></div></div></section>
+
+<section class="page" id="profits-page"><div class="stats"><div class="stat"><small>BÉNÉFICE TOTAL</small><strong id="pTotal">0 FCFA</strong></div><div class="stat"><small>VENTES</small><strong id="pSales">0 FCFA</strong></div><div class="stat"><small>COÛT D'ACHAT</small><strong id="pCost">0 FCFA</strong></div><div class="stat"><small>MARGE</small><strong id="pRate">0 %</strong></div></div><div class="card" style="margin-top:18px"><h2>Détail des bénéfices</h2><div class="table-wrap"><table class="data"><thead><tr><th>Facture</th><th>Client</th><th>Vente</th><th>Coût</th><th>Bénéfice</th></tr></thead><tbody id="profitsTable"></tbody></table></div></div></section>
+</main>
+</div></div>
+
+<div class="modal no-print" id="modal"><div class="modal-box"><button class="modal-close" id="closeModal">×</button><h3 id="modalTitle"></h3><div id="modalBody"></div></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="app.js"></script>
+</body></html>
